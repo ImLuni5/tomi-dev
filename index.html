@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>개발자 토미 — 마인크래프트 서버 개발</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="icon" type="image/png" href="https://yt3.googleusercontent.com/LklELJELzSRCwX_GAitEdJgHxjffqPDPYStiRmvBdbJA2O3k-0Aee9yloBL2W8DUm9hhNvBs=s160-c-k-c0x00ffffff-no-rj">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green: #00e676;
+    --green-dim: #00c853;
+    --green-glow: rgba(0,230,118,0.15);
+    --dark: #050a05;
+    --dark2: #0a110a;
+    --dark3: #0f1a0f;
+    --card: rgba(10,20,10,0.8);
+    --border: rgba(0,230,118,0.2);
+    --text: #e8f5e9;
+    --muted: rgba(232,245,233,0.45);
+    --red: #ff5252;
+    --amber: #ffd740;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 300;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* Custom cursor */
+  #cursor {
+    width: 12px; height: 12px;
+    background: var(--green);
+    position: fixed;
+    top: 0; left: 0;
+    pointer-events: none;
+    z-index: 9999;
+    image-rendering: pixelated;
+    transition: transform 0.1s;
+    clip-path: polygon(0 0,100% 0,100% 25%,75% 25%,75% 75%,100% 75%,100% 100%,0 100%);
+  }
+  #cursor-trail {
+    width: 8px; height: 8px;
+    background: rgba(0,230,118,0.4);
+    position: fixed;
+    top: 0; left: 0;
+    pointer-events: none;
+    z-index: 9998;
+    clip-path: polygon(0 0,100% 0,100% 25%,75% 25%,75% 75%,100% 75%,100% 100%,0 100%);
+    transition: all 0.15s ease;
+  }
+
+  /* Canvas background */
+  #bg-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 1.2rem 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(5,10,5,0.7);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.65rem;
+    color: var(--green);
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 20px var(--green);
+  }
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--green); }
+  .nav-cta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dark);
+    background: var(--green);
+    padding: 0.5rem 1.2rem;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+    transition: all 0.2s;
+  }
+  .nav-cta:hover { background: #fff; color: var(--dark); }
+
+  /* SECTIONS */
+  section {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    text-align: center;
+    padding: 8rem 2rem 4rem;
+    position: relative;
+  }
+
+  .hero-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--green);
+    border: 1px solid var(--border);
+    padding: 0.4rem 1rem;
+    letter-spacing: 0.15em;
+    margin-bottom: 2.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.3s forwards;
+    background: var(--green-glow);
+  }
+
+  .hero-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(1.4rem, 4vw, 2.8rem);
+    line-height: 1.6;
+    color: #fff;
+    text-shadow: 0 0 40px rgba(0,230,118,0.4);
+    margin-bottom: 1rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.5s forwards;
+  }
+  .hero-title span { color: var(--green); }
+
+  .hero-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-bottom: 3rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.7s forwards;
+  }
+
+  .hero-typewriter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    color: var(--green);
+    min-height: 1.5rem;
+    margin-bottom: 3.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.9s forwards;
+  }
+  .hero-typewriter::after {
+    content: '█';
+    animation: blink 1s infinite;
+  }
+
+  .hero-buttons {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    opacity: 0;
+    animation: fadeUp 0.6s 1.1s forwards;
+  }
+  .btn-primary {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--dark);
+    background: var(--green);
+    padding: 1rem 2.5rem;
+    text-decoration: none;
+    letter-spacing: 0.1em;
+    position: relative;
+    clip-path: polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);
+    transition: all 0.2s;
+    display: inline-block;
+  }
+  .btn-primary:hover {
+    background: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0,230,118,0.3);
+  }
+  .btn-secondary {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--green);
+    border: 1px solid var(--border);
+    padding: 1rem 2.5rem;
+    text-decoration: none;
+    letter-spacing: 0.1em;
+    background: transparent;
+    transition: all 0.2s;
+    display: inline-block;
+  }
+  .btn-secondary:hover {
+    background: var(--green-glow);
+    border-color: var(--green);
+  }
+
+  /* Scroll indicator */
+  .scroll-hint {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 1.5s forwards;
+  }
+  .scroll-hint span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+  }
+  .scroll-arrow {
+    width: 1px;
+    height: 40px;
+    background: linear-gradient(to bottom, var(--green), transparent);
+    animation: scrollPulse 2s infinite;
+  }
+
+  /* PAIN SECTION */
+  .pain-section {
+    padding: 6rem 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--green);
+    letter-spacing: 0.2em;
+    margin-bottom: 1rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s;
+  }
+  .section-label.visible { opacity: 1; transform: none; }
+  .section-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(0.9rem, 2.5vw, 1.5rem);
+    line-height: 1.8;
+    margin-bottom: 3rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s 0.1s;
+  }
+  .section-title.visible { opacity: 1; transform: none; }
+
+  .pain-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .pain-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.2rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    backdrop-filter: blur(10px);
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.5s;
+    position: relative;
+    overflow: hidden;
+  }
+  .pain-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--red);
+  }
+  .pain-item.visible { opacity: 1; transform: none; }
+  .pain-item:hover { border-color: rgba(255,82,82,0.4); background: rgba(255,82,82,0.05); }
+  .pain-num {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.6rem;
+    color: var(--red);
+    min-width: 24px;
+    margin-top: 2px;
+  }
+  .pain-text {
+    font-size: 0.95rem;
+    color: var(--text);
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* SERVICES */
+  .services-section {
+    padding: 6rem 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 3rem;
+  }
+  .service-card {
+    border: 1px solid var(--border);
+    background: var(--card);
+    backdrop-filter: blur(10px);
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s;
+    cursor: none;
+  }
+  .service-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--green);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s;
+  }
+  .service-card:hover::before { transform: scaleX(1); }
+  .service-card:hover {
+    border-color: var(--green);
+    background: rgba(0,230,118,0.03);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 60px rgba(0,230,118,0.1);
+  }
+  .service-card.visible { opacity: 1; transform: translateY(0); }
+  .service-icon {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.7rem;
+    color: var(--green);
+    background: var(--green-glow);
+    border: 1px solid var(--border);
+    padding: 0.7rem 1rem;
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.05em;
+  }
+  .service-name {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.75rem;
+    line-height: 1.8;
+    margin-bottom: 1rem;
+    color: #fff;
+  }
+  .service-desc {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+    font-weight: 300;
+  }
+  .service-features {
+    list-style: none;
+    margin-bottom: 1.5rem;
+  }
+  .service-features li {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    padding: 0.3rem 0;
+    border-bottom: 1px solid rgba(0,230,118,0.08);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .service-features li::before { content: '›'; color: var(--green); }
+  .service-price {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.65rem;
+    color: var(--green);
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+    line-height: 2;
+  }
+  .service-badge {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    padding: 0.25rem 0.6rem;
+    background: rgba(255,215,64,0.15);
+    color: var(--amber);
+    border: 1px solid rgba(255,215,64,0.3);
+    letter-spacing: 0.1em;
+  }
+
+  /* YOUTUBE DEAL */
+  .yt-section {
+    padding: 6rem 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .yt-card {
+    border: 1px solid rgba(255,82,82,0.3);
+    background: linear-gradient(135deg, rgba(255,82,82,0.05), rgba(0,230,118,0.05));
+    padding: 3rem;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s;
+  }
+  .yt-card.visible { opacity: 1; transform: none; }
+  .yt-card::before {
+    content: '● REC';
+    position: absolute;
+    top: 1.5rem; right: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--red);
+    letter-spacing: 0.1em;
+    animation: blink 2s infinite;
+  }
+  .yt-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(0.7rem, 2vw, 1rem);
+    line-height: 1.8;
+    margin-bottom: 2rem;
+    color: #fff;
+  }
+  .yt-deals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .yt-deal-item {
+    padding: 1.2rem;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.3);
+    text-align: center;
+  }
+  .yt-deal-service {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.05em;
+  }
+  .yt-deal-price {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.75rem;
+    color: var(--green);
+    line-height: 1.8;
+  }
+  .yt-notice {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    line-height: 1.8;
+    border-top: 1px solid var(--border);
+    padding-top: 1.5rem;
+  }
+  .yt-notice li { margin-bottom: 0.3rem; list-style: none; padding-left: 1rem; position: relative; }
+  .yt-notice li::before { content: '!'; position: absolute; left: 0; color: var(--amber); }
+
+  /* TRUST */
+  .trust-section {
+    padding: 6rem 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .trust-yt-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid var(--border);
+    padding: 1.5rem 2.5rem;
+    text-decoration: none;
+    color: var(--text);
+    background: var(--card);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s;
+    margin-top: 2rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s;
+  }
+  .trust-yt-btn.visible { opacity: 1; transform: none; }
+  .trust-yt-btn:hover {
+    border-color: var(--green);
+    background: var(--green-glow);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 60px rgba(0,230,118,0.15);
+  }
+  .trust-yt-icon {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.6rem;
+    color: var(--green);
+    border: 1px solid var(--green);
+    padding: 0.4rem 0.6rem;
+  }
+  .trust-yt-text {
+    text-align: left;
+  }
+  .trust-yt-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.2rem;
+  }
+  .trust-yt-name {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.7rem;
+    color: var(--green);
+  }
+
+  /* WHO */
+  .who-section {
+    padding: 6rem 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .who-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+  .who-item {
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s;
+  }
+  .who-item.visible { opacity: 1; transform: none; }
+  .who-item:hover { border-color: var(--green); }
+  .who-num {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    color: var(--green);
+    margin-bottom: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+  .who-text {
+    font-size: 0.9rem;
+    color: var(--text);
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* NOTICE */
+  .notice-section {
+    padding: 4rem 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .notice-card {
+    border: 1px solid rgba(255,215,64,0.2);
+    background: rgba(255,215,64,0.03);
+    padding: 2rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s;
+  }
+  .notice-card.visible { opacity: 1; transform: none; }
+  .notice-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--amber);
+    letter-spacing: 0.15em;
+    margin-bottom: 1.2rem;
+  }
+  .notice-list {
+    list-style: none;
+  }
+  .notice-list li {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255,215,64,0.08);
+    display: flex;
+    gap: 0.8rem;
+    line-height: 1.7;
+  }
+  .notice-list li span:first-child { color: var(--amber); min-width: 1.2rem; }
+
+  /* CTA */
+  .cta-section {
+    padding: 8rem 2rem;
+    text-align: center;
+    position: relative;
+  }
+  .cta-glow {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px; height: 300px;
+    background: radial-gradient(ellipse, rgba(0,230,118,0.08), transparent 70%);
+    pointer-events: none;
+  }
+  .cta-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(0.8rem, 2.5vw, 1.5rem);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s;
+  }
+  .cta-title.visible { opacity: 1; transform: none; }
+  .cta-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 3rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s 0.1s;
+  }
+  .cta-sub.visible { opacity: 1; transform: none; }
+  .cta-discord {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--dark);
+    background: var(--green);
+    padding: 1.2rem 3rem;
+    text-decoration: none;
+    letter-spacing: 0.1em;
+    clip-path: polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);
+    transition: all 0.3s;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s 0.2s;
+  }
+  .cta-discord.visible { opacity: 1; transform: none; }
+  .cta-discord:hover {
+    background: #fff;
+    transform: translateY(-3px) !important;
+    box-shadow: 0 20px 60px rgba(0,230,118,0.3);
+  }
+  .cta-free {
+    margin-top: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.6s 0.3s;
+  }
+  .cta-free.visible { opacity: 1; transform: none; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    position: relative;
+    z-index: 2;
+  }
+  footer a { color: var(--green); text-decoration: none; }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  @keyframes scrollPulse {
+    0%, 100% { opacity: 1; transform: scaleY(1); }
+    50% { opacity: 0.3; transform: scaleY(0.5); }
+  }
+  @keyframes pixelIn {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0 0% 0 0); }
+  }
+
+  /* PIXEL CORNER DECORATION */
+  .pixel-corner {
+    position: absolute;
+    width: 8px; height: 8px;
+    background: var(--green);
+    image-rendering: pixelated;
+  }
+  .pc-tl { top: 0; left: 0; }
+  .pc-tr { top: 0; right: 0; }
+  .pc-bl { bottom: 0; left: 0; }
+  .pc-br { bottom: 0; right: 0; }
+
+  /* DIVIDER */
+  .pixel-divider {
+    height: 1px;
+    background: repeating-linear-gradient(90deg, var(--border) 0, var(--border) 4px, transparent 4px, transparent 8px);
+    margin: 0 2rem;
+    position: relative;
+    z-index: 2;
+  }
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-trail"></div>
+
+<canvas id="bg-canvas"></canvas>
+
+<nav>
+  <div class="nav-logo">개발자 토미</div>
+  <ul class="nav-links">
+    <li><a href="#services">서비스</a></li>
+    <li><a href="#youtube">유튜브 혜택</a></li>
+    <li><a href="#contact">문의</a></li>
+  </ul>
+  <a href="https://www.youtube.com/@개발자" target="_blank" class="nav-cta">YOUTUBE ↗</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">MINECRAFT SERVER DEVELOPER</div>
+  <h1 class="hero-title">
+    서버 문제,<br>
+    <span>저한테 맡기시면</span><br>
+    됩니다.
+  </h1>
+  <p class="hero-sub">Plugin Dev · Server Optimization · Full Package</p>
+  <div class="hero-typewriter" id="typewriter"></div>
+  <div class="hero-buttons">
+    <a href="#contact" class="btn-primary">무료 상담 시작</a>
+    <a href="https://www.youtube.com/@%EA%B0%9C%EB%B0%9C%EC%9E%90" target="_blank" class="btn-secondary">채널 구경 →</a>
+  </div>
+  <div class="scroll-hint">
+    <div class="scroll-arrow"></div>
+  </div>
+</section>
+
+<div class="pixel-divider"></div>
+
+<!-- PAIN -->
+<section class="pain-section">
+  <p class="section-label reveal">// 혹시 이런 경험 있으신가요?</p>
+  <h2 class="section-title reveal">서버 운영하다 보면<br>꼭 한 번씩 겪는 것들.</h2>
+  <div class="pain-grid">
+    <div class="pain-item reveal">
+      <span class="pain-num">01</span>
+      <span class="pain-text">서버 열었는데 사람 10명만 들어와도 렉이 걸린다</span>
+    </div>
+    <div class="pain-item reveal">
+      <span class="pain-num">02</span>
+      <span class="pain-text">플러그인 충돌이 나는데 원인을 모르겠다</span>
+    </div>
+    <div class="pain-item reveal">
+      <span class="pain-num">03</span>
+      <span class="pain-text">개발자한테 맡겼다가 중간에 잠수 맞은 적이 있다</span>
+    </div>
+    <div class="pain-item reveal">
+      <span class="pain-num">04</span>
+      <span class="pain-text">견적 받아봤더니 예산을 훨씬 초과해서 포기했다</span>
+    </div>
+  </div>
+</section>
+
+<div class="pixel-divider"></div>
+
+<!-- SERVICES -->
+<section class="services-section" id="services">
+  <p class="section-label reveal">// 제공 서비스</p>
+  <h2 class="section-title reveal">실제로 필요한 것만,<br>합리적인 가격으로.</h2>
+  <div class="services-grid">
+
+    <div class="service-card reveal">
+      <div class="service-badge">MAIN</div>
+      <div class="service-icon">⚙ OPT</div>
+      <div class="service-name">서버 세팅<br>& 최적화</div>
+      <div class="service-desc">Spark 프로파일러 분석부터 기본 세팅 전반까지. 렉의 원인을 정확히 찾아 해결합니다.</div>
+      <ul class="service-features">
+        <li>TPS 안정화 및 메모리 관리</li>
+        <li>플러그인 충돌 원인 분석·해결</li>
+        <li>Spark 프로파일러 기반 최적화</li>
+        <li>납품 후 3일 A/S 포함</li>
+      </ul>
+      <div class="service-price">1만 ~ 50만원<br>규모에 따라 협의</div>
+    </div>
+
+    <div class="service-card reveal" style="transition-delay:0.1s">
+      <div class="service-icon">{ } DEV</div>
+      <div class="service-name">커스텀 플러그인<br>개발</div>
+      <div class="service-desc">원하시는 기능을 Java로 직접 개발해 드립니다. 간단한 기능부터 복잡한 시스템까지 가능합니다.</div>
+      <ul class="service-features">
+        <li>간단 기능 (1~2일)</li>
+        <li>중간 난이도 (3~5일)</li>
+        <li>복잡한 시스템 (1~2주)</li>
+        <li>납품 후 1주일 A/S 포함</li>
+      </ul>
+      <div class="service-price">5만 ~ 70만원<br>기능 복잡도에 따라 협의</div>
+    </div>
+
+    <div class="service-card reveal" style="transition-delay:0.2s">
+      <div class="service-icon">▶ PKG</div>
+      <div class="service-name">풀패키지<br>서버 구축</div>
+      <div class="service-desc">처음부터 오픈까지 전 과정을 함께합니다. 세팅·최적화·플러그인 개발 모두 포함됩니다.</div>
+      <ul class="service-features">
+        <li>세팅 + 최적화 + 플러그인 개발</li>
+        <li>오픈까지 전 과정 전담</li>
+        <li>1개월 A/S 포함</li>
+      </ul>
+      <div class="service-price">30만 ~ 200만원<br>규모에 따라 협의</div>
+    </div>
+
+  </div>
+</section>
+
+<div class="pixel-divider"></div>
+
+<!-- YOUTUBE DEAL -->
+<section class="yt-section" id="youtube">
+  <p class="section-label reveal">// 특별 혜택</p>
+  <div class="yt-card reveal">
+    <h2 class="yt-title">🎬 유튜브 출연 동의 시<br>파격 할인 혜택</h2>
+    <p style="font-size:0.9rem;color:var(--muted);margin-bottom:2rem;line-height:1.8;font-weight:300;">제 유튜브 채널 콘텐츠 소재로 활용하는 조건으로 아래와 같이 진행해드립니다. 서버가 유튜브에 소개되면 자연스럽게 홍보 효과도 생깁니다.</p>
+    <div class="yt-deals">
+      <div class="yt-deal-item">
+        <div class="yt-deal-service">서버 세팅 & 최적화</div>
+        <div class="yt-deal-price">무료<br><span style="font-size:0.5rem;color:var(--muted);">복잡 작업 시 큰 폭 할인</span></div>
+      </div>
+      <div class="yt-deal-item">
+        <div class="yt-deal-service">플러그인 / 풀패키지</div>
+        <div class="yt-deal-price">최대 50%<br><span style="font-size:0.5rem;color:var(--muted);">할인 적용</span></div>
+      </div>
+    </div>
+    <ul class="yt-notice">
+      <li style="color:var(--amber);border-bottom:1px solid rgba(255,215,64,0.2);margin-bottom:0.5rem;padding-bottom:0.8rem;">아래 정보들이 유튜브에 노출될 수 있습니다.</li>
+      <li>서버 이름 (원하시면 익명 처리 가능)</li>
+      <li>서버 버전, 사용 버킷, 플러그인 목록, 장르</li>
+      <li>서버 컴퓨터 사양 및 설정값 (비공개 협의 가능)</li>
+      <li>Spark 프로파일러 데이터 및 대화 기록</li>
+      <li style="color:var(--red);">유튜브 출연 동의 이후 영상을 내리는 것은 불가능합니다.</li>
+    </ul>
+  </div>
+</section>
+
+<div class="pixel-divider"></div>
+
+<!-- TRUST -->
+<section class="trust-section">
+  <p class="section-label reveal" style="text-align:center;">// 왜 저한테 맡겨도 되냐고요?</p>
+  <h2 class="section-title reveal" style="text-align:center;">말로만 잘한다고 하는 사람은 많습니다.<br>직접 확인하세요.</h2>
+  <a href="https://www.youtube.com/@%EA%B0%9C%EB%B0%9C%EC%9E%90" target="_blank" class="trust-yt-btn reveal" style="margin:2rem auto 0;display:inline-flex;">
+    <div class="trust-yt-icon">YT</div>
+    <div class="trust-yt-text">
+      <div class="trust-yt-label">YOUTUBE CHANNEL</div>
+      <div class="trust-yt-name">개발자 토미</div>
+    </div>
+    <span style="margin-left:1rem;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--green);">→</span>
+  </a>
+</section>
+
+<div class="pixel-divider"></div>
+
+<!-- WHO -->
+<section class="who-section">
+  <p class="section-label reveal">// 이런 분께 추천드립니다</p>
+  <div class="who-grid">
+    <div class="who-item reveal">
+      <div class="who-num">CASE 01</div>
+      <div class="who-text">처음 서버를 열어보려는데 어디서 시작해야 할지 모르는 분</div>
+    </div>
+    <div class="who-item reveal" style="transition-delay:0.1s">
+      <div class="who-num">CASE 02</div>
+      <div class="who-text">기존 서버가 있는데 렉이나 오류가 계속 생기는 분</div>
+    </div>
+    <div class="who-item reveal" style="transition-delay:0.2s">
+      <div class="who-num">CASE 03</div>
+      <div class="who-text">원하는 기능이 있는데 직접 구현하기 어려운 분</div>
+    </div>
+    <div class="who-item reveal" style="transition-delay:0.3s">
+      <div class="who-num">CASE 04</div>
+      <div class="who-text">이전에 개발자한테 안 좋은 경험이 있어서 신중하게 고르고 싶은 분</div>
+    </div>
+  </div>
+</section>
+
+<div class="pixel-divider"></div>
+
+<!-- NOTICE -->
+<section class="notice-section">
+  <div class="notice-card reveal">
+    <div class="notice-title">⚠ NOTICE — 유의사항</div>
+    <ul class="notice-list">
+      <li><span>1.</span><span>모드 서버 / 하이브리드 버킷은 작업 의뢰가 반려될 수 있습니다.</span></li>
+      <li><span>2.</span><span>서버 최적화 작업 진행 시, Spark 프로파일러 링크는 일정 시간이 지나면 만료됩니다. 반드시 제가 작업 가능한 상태인지 확인 후 전송 바랍니다.</span></li>
+      <li><span>3.</span><span>유튜브 출연 동의 이후 영상을 내리는 것은 불가능합니다. 공개되는 항목을 반드시 확인 후 신중하게 판단 바랍니다.</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="contact">
+  <div class="cta-glow"></div>
+  <p class="section-label reveal" style="text-align:center;">// 상담은 무료입니다</p>
+  <h2 class="cta-title reveal">부담 없이 먼저<br>말씀해 주세요.</h2>
+  <p class="cta-sub reveal">규모, 원하는 기능, 예산 범위만 알려주시면<br>맞춰서 견적 드리겠습니다.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:1rem;justify-content:center;align-items:center;">
+    <a href="https://discord.com/users/luni6" class="cta-discord reveal">
+      DISCORD: luni6
+    </a>
+    <a href="mailto:cheomuu@gmail.com" class="cta-discord reveal" style="background:transparent;color:var(--green);border:1px solid var(--border);clip-path:none;transition-delay:0.1s;">
+      EMAIL: cheomuu@gmail.com
+    </a>
+  </div>
+  <p class="cta-free reveal">상담 무료 · 견적 무료 · 잠수 없음</p>
+</section>
+
+<footer>
+  <p>© 2025 개발자 토미 · <a href="https://www.youtube.com/@%EA%B0%9C%EB%B0%9C%EC%9E%90" target="_blank">YouTube</a> · Discord: luni6 · <a href="mailto:cheomuu@gmail.com">cheomuu@gmail.com</a></p>
+</footer>
+
+<script>
+  /* Custom cursor */
+  const cursor = document.getElementById('cursor');
+  const trail = document.getElementById('cursor-trail');
+  let mx = 0, my = 0, tx = 0, ty = 0;
+
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX - 6; my = e.clientY - 6;
+    cursor.style.left = mx + 'px';
+    cursor.style.top = my + 'px';
+  });
+
+  function animateTrail() {
+    tx += (mx - tx) * 0.15;
+    ty += (my - ty) * 0.15;
+    trail.style.left = tx + 'px';
+    trail.style.top = ty + 'px';
+    requestAnimationFrame(animateTrail);
+  }
+  animateTrail();
+
+  document.addEventListener('mousedown', () => cursor.style.transform = 'scale(0.7)');
+  document.addEventListener('mouseup', () => cursor.style.transform = 'scale(1)');
+
+  /* Canvas background — floating pixels */
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const pixels = Array.from({length: 60}, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    size: Math.random() > 0.8 ? 4 : 2,
+    speed: 0.2 + Math.random() * 0.5,
+    opacity: 0.1 + Math.random() * 0.4,
+    drift: (Math.random() - 0.5) * 0.3
+  }));
+
+  function drawBg() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    /* grid */
+    ctx.strokeStyle = 'rgba(0,230,118,0.04)';
+    ctx.lineWidth = 1;
+    const gs = 60;
+    for (let x = 0; x < canvas.width; x += gs) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += gs) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+
+    /* floating pixels */
+    pixels.forEach(p => {
+      p.y -= p.speed;
+      p.x += p.drift;
+      if (p.y < -10) { p.y = canvas.height + 10; p.x = Math.random() * canvas.width; }
+      if (p.x < 0 || p.x > canvas.width) p.drift *= -1;
+
+      ctx.fillStyle = `rgba(0,230,118,${p.opacity})`;
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+    });
+
+    requestAnimationFrame(drawBg);
+  }
+  drawBg();
+
+  /* Typewriter */
+  const phrases = [
+    '렉 걸리는 서버, 고칠 수 있습니다.',
+    '플러그인 충돌, 원인 찾아드립니다.',
+    '잠수? 저는 끝까지 함께합니다.',
+    '원하는 기능, Java로 만들어드립니다.',
+  ];
+  let pi = 0, ci = 0, del = false;
+  const tw = document.getElementById('typewriter');
+
+  function type() {
+    const phrase = phrases[pi];
+    if (!del) {
+      tw.textContent = phrase.slice(0, ++ci);
+      if (ci === phrase.length) { del = true; setTimeout(type, 2000); return; }
+      setTimeout(type, 60);
+    } else {
+      tw.textContent = phrase.slice(0, --ci);
+      if (ci === 0) { del = false; pi = (pi + 1) % phrases.length; setTimeout(type, 400); return; }
+      setTimeout(type, 30);
+    }
+  }
+  setTimeout(type, 1500);
+
+  /* Scroll reveal */
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  reveals.forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
